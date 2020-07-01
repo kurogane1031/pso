@@ -76,7 +76,7 @@ private:
   
   // ##############
   //  PSO PARAMETER
-  const int number_of_particle = 30;
+  const int number_of_particle = 10;
   const int max_iter = 500;
   const T min_inertia_weight = 0.2;
   const T max_inertia_weight = 0.9;
@@ -135,6 +135,14 @@ private:
     }
   }
 
+  auto personal_best(const T& C1, const T& R1, const T& P, const T& X){
+    return C1 * R1 * (P - X);
+  }
+
+  auto global_best(const T& C2, const T& R2, const T& G, const T& X){
+    return C2 * R2 * (G - X);
+  }
+
   // main loop that starts the optimization and return a global best
   void run(){
     // Start iteration
@@ -167,7 +175,9 @@ private:
         const std::vector<T> r2 = random_float();
       for (auto it = swarm.particles.begin(); it != swarm.particles.end(); ++it){
         for (int i = 0; i < nVar; i++) {
-          it->V[i] = w * it->V[i] + (c1 * r1[i] * (it->P_BEST_X[i] - it->X[i])) + (c2 * r2[i] * (swarm.G_BEST_X[i] - it->X[i])); // update velocity vector
+          it->V[i] = w * it->V[i] + personal_best(c1, r1[i], it->P_BEST_X[i], it->X[i])
+                     + global_best(c2, r2[i], swarm.G_BEST_X[i], it->X[i]); // update velocity vector
+
           if (it->V[i] < min_velocity[i]) {
             it->V[i] = min_velocity[i];
           }
