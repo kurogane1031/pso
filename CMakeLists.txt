@@ -5,13 +5,11 @@ find_package(FMT)
 find_package(range-v3 CONFIG REQUIRED)
 
 SET(CMAKE_CXX_COMPILER "/usr/bin/clang++-10")
-SET(CMAKE_CXX_FLAGS "-Wall -Wextra -Wpedantic -ftime-trace")
+SET(CMAKE_CXX_FLAGS "-O3 -Wall -Wextra -Wpedantic -ftime-trace")
+SET(CMAKE_EXPORT_COMPILE_COMMANDS "ON")
 
-include_directories(matplotlib-cpp
-  /usr/include/python3.6m)
-
-add_executable(pso main.cpp)
-target_link_libraries(pso python3.6m range-v3 fmt)
+add_executable(pso pso.cpp main.cpp)
+target_link_libraries(pso fmt)
 
 # CXX = clang++-10
 # CXXFLAGS = -std=c++14 -g -O3 -ftime-trace
