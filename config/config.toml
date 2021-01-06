@@ -1,0 +1,4 @@
+# This is a TOML file for PSO configuration
+
+ number_of_particles = 30
+ maximum_iterations = 1000

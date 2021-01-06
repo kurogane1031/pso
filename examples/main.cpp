@@ -1,19 +1,17 @@
-#include "pso.h"
-#include "timer.h"
+#include "pso/pso.h"
+#include "utils/timer.h"
 #include <fmt/ranges.h>
 typedef double type_;
 
-template <class T>
-T sphere(const std::vector<T> &vec) {
+double sphere(const std::vector<double> &vec) {
   // objective function to optimize
-  return std::inner_product(vec.begin(), vec.end(), vec.begin(), static_cast<T>(0));
+  return std::inner_product(vec.begin(), vec.end(), vec.begin(), static_cast<double>(0));
 }
 
-template <class T>
-T schwefel(const std::vector<T> &vec){
-  T temp_i = 0.0f;
+double schwefel(const std::vector<double> &vec){
+  double temp_i = 0.0f;
   for(size_t i = 0; i < vec.size(); ++i){
-    T temp_j = 0.0f;
+    double temp_j = 0.0f;
     for(size_t j = 0; j < (i + 1); j++){
       temp_j += vec[j];
     }
@@ -22,8 +20,7 @@ T schwefel(const std::vector<T> &vec){
   return temp_i;
 }
 
-template <typename T>
-T table(const std::vector<T> &vec) {
+double table(const std::vector<double> &vec) {
   return 1*(vec[0]+vec[1]);
 }
 
@@ -35,9 +32,13 @@ int main(){
   upper_bound.resize(nVar, 10);
   lower_bound.resize(nVar, -10);
 
+  const auto configurations = toml::parse("../config/config.toml");
+  int number_of_particles = toml::find<int>(configurations, "number_of_particles");
+  int maximum_iterations = toml::find<int>(configurations, "maximum_iterations");
+
   timer.Start();
-  PSO<type_> pso(
-      300, 1000, 0.2, 0.9, 2, 2, nVar, lower_bound, upper_bound,
+  PSO pso(
+      number_of_particles, maximum_iterations, 0.2, 0.9, 2, 2, nVar, lower_bound, upper_bound,
       static_cast<type_(*)(const std::vector<type_> &)>(schwefel));
   pso.run();
   timer.Stop();

@@ -1,4 +1,4 @@
-#include "pso.h"
+#include "pso/pso.h"
 #include <gtest/gtest.h>
 
 TEST(TestName, objective_float_add){

@@ -1,17 +1,18 @@
-#include "pso.h"
+#include "pso/pso.h"
 
-template <typename T>
 auto lambaGetVelocity(){
     // get_min_velocity = lower - upper
     // get_max_velocity = upper - lower
-    return [](const T& first, const T& second) -> T
+    return [](const double& first, const double& second) -> double
     {
       return 0.2 * (first - second);
     };
 }
 
-template <typename T>
-Swarm<T>::Swarm(const int& n_var, const int& n_particles){
+std::mt19937 Random::s_RandomEngine;
+std::uniform_int_distribution<std::mt19937::result_type> Random::s_Distribution;
+
+Swarm::Swarm(const int& n_var, const int& n_particles){
     particles.resize(n_particles);
     for(auto& particle:particles){
         particle.position.resize(n_var, 0.0);
@@ -23,19 +24,20 @@ Swarm<T>::Swarm(const int& n_var, const int& n_particles){
     best_global.fitness = inf;
 }
 
-template <typename T>
-PSO<T>::PSO(const int &n_particle, const int &max_iter, const T &min_w,
-            const T &max_w, const T &c1, const T &c2, const int &n_var,
-            const std::vector<T> &lb, const std::vector<T> &ub,
-            std::function<T(const std::vector<T> &)> f)
+
+PSO::PSO(const int &n_particle, const int &max_iter, const double &min_w,
+            const double &max_w, const double &c1, const double &c2, const int &n_var,
+            const std::vector<double> &lb, const std::vector<double> &ub,
+            std::function<double(const std::vector<double> &)> f)
     : n_var(n_var), lower_bound(lb), upper_bound(ub),
       number_of_particle(n_particle), max_iter(max_iter),
       min_inertia_weight(min_w), max_inertia_weight(max_w), c1(c1), c2(c2) {
     func = f;
-    swarm = Swarm<T>(n_var, number_of_particle);
+    swarm = Swarm(n_var, number_of_particle);
+    Random::Init();
 
-    auto compute_lower_minus_upper = lambaGetVelocity<T>();
-    auto compute_upper_minus_lower = lambaGetVelocity<T>();
+    auto compute_lower_minus_upper = lambaGetVelocity();
+    auto compute_upper_minus_lower = lambaGetVelocity();
     min_velocity.reserve(lb.size());
     max_velocity.reserve(ub.size());
     std::transform(lb.begin(),
@@ -53,57 +55,38 @@ PSO<T>::PSO(const int &n_particle, const int &max_iter, const T &min_w,
     init(ub, lb);
 }
 
-template <typename T>
-const std::vector<T> PSO<T>::random_float(){
-    std::vector<T> rand;
-    rand.reserve(n_var);
-    std::random_device rd;
-    std::mt19937 mt(rd());
-    std::uniform_real_distribution<float> distribution(0, 1);
-
-    for(int idx = 0; idx < n_var; idx++){
-        rand.emplace_back(distribution(mt));
-    }
-
-    return rand;
-}
-
-
-template <typename T>
-void PSO<T>::init(const std::vector<T>& ub, const std::vector<T>& lb){
+void PSO::init(const std::vector<double>& ub, const std::vector<double>& lb){
     for(auto& particle:swarm.particles)
     {
-        std::vector<T> rand = random_float();
-        ::transform(rand.cbegin(),
-                    rand.cend(),
-                    ub.cbegin(),
-                    lb.cbegin(),
-                    particle.position.begin(),
-                    [](T t_random, T t_upper, T t_lower)
-                    {
-                        return (t_upper - t_lower) * t_random + t_lower;
-                    });
+        std::transform(ub.cbegin(),
+                       ub.cend(),
+                       lb.cbegin(),
+                       particle.position.begin(),
+                       [](double t_upper, double t_lower)
+                       {
+                           return (t_upper - t_lower) * Random::Double() + t_lower;
+                       });
     }
 }
 
-template <typename T>
-T PSO<T>::update_velocity(const T& w, const T& v,
-                          const T& c1, const T& c2,
-                          const T& r1, const T& r2,
-                          const T& P, const T& G,
-                          const T& position){
+
+double PSO::update_velocity(const double& w, const double& v,
+                          const double& c1, const double& c2,
+                          const double& r1, const double& r2,
+                          const double& P, const double& G,
+                          const double& position){
     return (w * v + c1 * r1 * (P - position) + c2 * r2 * (G - position));
 }
 
-template <typename T>
-T PSO<T>::update_position(const T& position, const T& velocity){
+
+double PSO::update_position(const double& position, const double& velocity){
     return position + velocity;
 }
 
-template <typename T>
-void PSO<T>::run(){
+
+void PSO::run(){
     // Start iteration
-    std::vector<T> track_gbest;
+    std::vector<double> track_gbest;
     track_gbest.reserve(max_iter);
     std::vector<int> track_iter;
     track_iter.reserve(max_iter);
@@ -133,13 +116,11 @@ void PSO<T>::run(){
         const auto w = max_inertia_weight - weight_diff * curr_iter / max_iter;
 
         // update exploration and exploitation
-        const std::vector<T> rand1 = random_float();
-        const std::vector<T> rand2 = random_float();
         for(auto& particle:swarm.particles)
         {
             for (int i = 0; i < n_var; ++i) {
                 particle.velocities[i] = update_velocity(
-                    w, particle.velocities[i], c1, c2, rand1[i], rand2[i],
+                    w, particle.velocities[i], c1, c2, Random::Double(), Random::Double(),
                     particle.best_local.position[i], swarm.best_global.position[i],
                     particle.position[i]); // update velocity vector
             }
@@ -149,21 +130,21 @@ void PSO<T>::run(){
                         min_velocity.cbegin(),
                         max_velocity.cbegin(),
                         particle.velocities.begin(),
-                        [](T x, T min, T max) {
+                        [](double x, double min, double max) {
                             return std::min(std::max(min, x), max);
                         });
 
             // update position
             std::transform(particle.position.begin(), particle.position.end(),
                            particle.velocities.cbegin(), particle.position.begin(),
-                           std::plus<T>());
+                           std::plus<>());
 
             ::transform(particle.position.begin(),
                         particle.position.end(),
                         lower_bound.cbegin(),
                         upper_bound.cbegin(),
                         particle.position.begin(),
-                        [](T x, T min, T max){
+                        [](double x, double min, double max){
                             return std::min(std::max(min, x), max);
                         });
         }
@@ -173,13 +154,8 @@ void PSO<T>::run(){
     }
 }
 
-template <typename T>
-std::vector<T> PSO<T>::get_best_x() const
+
+std::vector<double> PSO::get_best_x() const
 {
     return swarm.best_global.position;
 }
-
-template class PSO<int>;
-template class PSO<double>;
-template class PSO<float>;
-
